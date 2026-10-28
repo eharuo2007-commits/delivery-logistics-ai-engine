@@ -1,0 +1,20 @@
+{
+  "name": "logiengine-ai-ifood",
+  "version": "2.4.0",
+  "description": "LogiEngine AI - Motor de Precificação Dinâmica, Roteirização e SLA Logístico com Google Gemini API (Structured Outputs / JSON Schema)",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve . -l 3000",
+    "test": "node --test tests/pricingEngine.test.js"
+  },
+  "keywords": [
+    "logistics",
+    "surge-pricing",
+    "sla-prediction",
+    "gemini-api",
+    "structured-outputs",
+    "ifood-architecture"
+  ],
+  "author": "Enzo Haruo de Torres Souza <eharuo2007@gmail.com>",
+  "license": "MIT"
+}

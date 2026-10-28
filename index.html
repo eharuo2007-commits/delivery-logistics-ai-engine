@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LogiEngine AI — Motor de Precificação Dinâmica, Roteirização e SLA Logístico</title>
+  <meta name="description" content="Microsserviço inteligente de cálculo de rota determinístico e inferência estruturada via Google Gemini API para previsão de SLA, risco logístico e Surge Pricing." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- TOP ENGINEERING HEADER BAR -->
+  <header class="topbar" role="banner">
+    <div class="topbar__brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      </div>
+      <div class="brand-titles">
+        <div class="brand-title-row">
+          <h1 class="brand-name">LogiEngine <span class="brand-accent">AI</span></h1>
+          <span class="version-pill">v2.4 PROD</span>
+          <span class="arch-pill">Structured Outputs • JSON Schema</span>
+        </div>
+        <p class="brand-subtitle">Motor de Precificação Dinâmica, Roteirização e SLA Logístico</p>
+      </div>
+    </div>
+
+    <!-- GEMINI API KEY & ENGINE MODE CONTROLS -->
+    <div class="topbar__controls">
+      <div class="api-key-widget">
+        <label for="gemini-api-key" class="api-key-label">
+          <span class="status-dot" id="engine-mode-dot"></span>
+          <span id="engine-mode-text">Modo Simulação Realista (Mock)</span>
+        </label>
+        <div class="api-key-input-group">
+          <input
+            type="password"
+            id="gemini-api-key"
+            class="api-key-input"
+            placeholder="Insira sua Gemini API Key (AIza...) ou deixe vazio p/ Mock"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" id="btn-toggle-key-visibility" class="icon-btn" title="Mostrar/Ocultar API Key" aria-label="Mostrar ou ocultar chave da API">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </button>
+          <button type="button" id="btn-open-prompt-modal" class="secondary-btn btn-sm" title="Inspecionar System Prompt e JSON Schema">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            Contrato &amp; System Prompt
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3-COLUMN ENGINEERING WORKSPACE -->
+  <main class="workspace-grid" role="main">
+    <!-- ====================================================================
+         PAINEL ESQUERDO: INPUT & CENÁRIOS DE TESTE
+         ==================================================================== -->
+    <section class="panel panel--left" aria-labelledby="left-panel-title">
+      <div class="panel__header">
+        <div class="panel__title-group">
+          <span class="panel__step-badge">01</span>
+          <div>
+            <h2 id="left-panel-title" class="panel__title">Input &amp; Cenários de Teste</h2>
+            <p class="panel__subtitle">Parâmetros determinísticos de rota + variáveis estocásticas</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 BOTÕES DE PRESETS RÁPIDOS (1-CLICK) -->
+      <div class="presets-box">
+        <div class="presets-box__header">
+          <span class="section-micro-label">PRESETS RÁPIDOS (1-CLICK TEST)</span>
+          <span class="micro-hint">Executa cotação automaticamente</span>
+        </div>
+        <div class="presets-grid">
+          <button type="button" class="preset-btn preset-btn--normal" data-preset="NORMAL_LUNCH">
+            <div class="preset-btn__top">
+              <span class="preset-indicator preset-indicator--green"></span>
+              <span class="preset-title">Cenário Normal (Almoço)</span>
+            </div>
+            <span class="preset-desc">4.2 km • Céu Limpo • Tráfego Normal • Equilibrado</span>
+          </button>
+
+          <button type="button" class="preset-btn preset-btn--critical" data-preset="CRITICAL_STORM_FRIDAY">
+            <div class="preset-btn__top">
+              <span class="preset-indicator preset-indicator--red"></span>
+              <span class="preset-title">Cenário Crítico (Tempestade + Sexta à Noite)</span>
+            </div>
+            <span class="preset-desc">6.8 km • Tempestade Severa • Acidente • Escassez Crítica</span>
+          </button>
+
+          <button type="button" class="preset-btn preset-btn--long" data-preset="LONG_ROUTE_HIGH_DEMAND">
+            <div class="preset-btn__top">
+              <span class="preset-indicator preset-indicator--amber"></span>
+              <span class="preset-title">Rota Longa (Alta Demanda)</span>
+            </div>
+            <span class="preset-desc">14.6 km • Chuva Moderada • Horário de Pico • Escassez</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- FORMULÁRIO DE PARÂMETROS -->
+      <form id="pricing-form" class="engine-form" novalidate>
+        <div class="form-section-divider">
+          <span class="form-section-title">Camada de Domínio (Rota Determinística)</span>
+          <button type="button" id="btn-recalc-cep-distance" class="recalc-pill-btn" title="Calcular distância Haversine aproximada pelos CEPs">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            Auto-calcular km via CEP
+          </button>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="origin-cep">CEP Origem (Coleta)</label>
+            <input type="text" id="origin-cep" name="originCep" value="01310-100" maxlength="9" placeholder="01310-100" required />
+            <span class="field-Region-hint" id="origin-region-hint">Bela Vista / Paulista - SP</span>
+          </div>
+          <div class="form-group">
+            <label for="dest-cep">CEP Destino (Entrega)</label>
+            <input type="text" id="dest-cep" name="destCep" value="04001-001" maxlength="9" placeholder="04001-001" required />
+            <span class="field-Region-hint" id="dest-region-hint">Vila Mariana / Moema - SP</span>
+          </div>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="distance-km">Distância Estimada (km)</label>
+            <input type="number" id="distance-km" name="distanceKm" value="4.2" min="0.5" max="100" step="0.1" required />
+            <span class="field-subhint">Taxa: R$ 1,80/km</span>
+          </div>
+          <div class="form-group">
+            <label for="weight-kg">Peso Carga (kg)</label>
+            <input type="number" id="weight-kg" name="weightKg" value="1.5" min="0.1" max="50" step="0.1" required />
+            <span class="field-subhint">Isento até 3.0kg</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="volume-category">Volume / Modal Bag</label>
+          <select id="volume-category" name="volumeCategory">
+            <option value="SMALL" selected>Pequeno (Mochila Padrão — Isento)</option>
+            <option value="MEDIUM">Médio (Bag Térmica 45L +R$ 2,20)</option>
+            <option value="LARGE">Grande (Baú / Carga Pesada +R$ 5,90)</option>
+          </select>
+        </div>
+
+        <div class="form-section-divider">
+          <span>Variáveis Contextuais em Tempo Real (Inputs IA)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="weather-select">Condição Climática (Clima)</label>
+          <select id="weather-select" name="weather">
+            <option value="Céu Limpo" selected>☀️ Céu Limpo (Operação Nominal)</option>
+            <option value="Chuva Moderada">🌧️ Chuva Moderada (Pista Molhada)</option>
+            <option value="Tempestade Severa">⛈️ Tempestade Severa (Risco de Alagamento)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="traffic-select">Severidade do Tráfego Urbano</label>
+          <select id="traffic-select" name="traffic">
+            <option value="Normal" selected>🟢 Normal (Corredores Livres)</option>
+            <option value="Horário de Pico">🟡 Horário de Pico (Retenção Arterial)</option>
+            <option value="Acidente na Via">🔴 Acidente na Via (Bloqueio / Desvio Crítico)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="courier-demand-select">Demanda &amp; Oferta de Entregadores</label>
+          <select id="courier-demand-select" name="courierDemand">
+            <option value="Alta Oferta">🟢 Alta Oferta (Excedente de Frota no Cluster)</option>
+            <option value="Equilibrado" selected>⚖️ Equilibrado (Liquidez Nominal)</option>
+            <option value="Escassez Crítica">🔥 Escassez Crítica (Déficit Agudo de Entregadores)</option>
+          </select>
+        </div>
+
+        <button type="submit" id="btn-run-engine" class="primary-cta-btn">
+          <span class="btn-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+          </span>
+          <span id="btn-run-engine-label">Executar Motor de Precificação &amp; SLA</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ====================================================================
+         PAINEL CENTRAL: RESULTADO EXECUTIVO & PRECIFICAÇÃO
+         ==================================================================== -->
+    <section class="panel panel--center" aria-labelledby="center-panel-title">
+      <div class="panel__header">
+        <div class="panel__title-group">
+          <span class="panel__step-badge">02</span>
+          <div>
+            <h2 id="center-panel-title" class="panel__title">Resultado Executivo &amp; Precificação</h2>
+            <p class="panel__subtitle" id="active-route-summary">01310-100 → 04001-001 • 4.2 km • Atualizado em tempo real</p>
+          </div>
+        </div>
+        <div class="confidence-pill" title="Confidence Score retornado pelo modelo">
+          <span class="confidence-pill__label">AI Confidence:</span>
+          <strong id="kpi-confidence-score" class="confidence-pill__value">94%</strong>
+        </div>
+      </div>
+
+      <!-- EXECUTIVE KPI CARDS (4 CARDS PRINCIPAIS) -->
+      <div class="kpi-cards-grid">
+        <!-- Card 1: Valor Final do Frete -->
+        <article class="kpi-card kpi-card--highlight">
+          <div class="kpi-card__top">
+            <span class="kpi-card__label">VALOR FINAL DO FRETE (DINÂMICO)</span>
+            <span class="surge-pill" id="kpi-surge-pill">1.06x Surge</span>
+          </div>
+          <div class="kpi-card__main-value" id="kpi-final-price">R$ 12,78</div>
+          <div class="kpi-card__footer" id="kpi-price-formula">
+            Taxa Base R$ 12,06 × 1.06 Surge
+          </div>
+        </article>
+
+        <!-- Card 2: SLA Estimado (minutos) -->
+        <article class="kpi-card">
+          <div class="kpi-card__top">
+            <span class="kpi-card__label">SLA ESTIMADO DE ENTREGA</span>
+            <span class="sla-delta-tag" id="kpi-sla-delta">+2 min vs Estático</span>
+          </div>
+          <div class="kpi-card__main-value">
+            <span id="kpi-sla-minutes">22</span>
+            <small class="kpi-unit">min</small>
+          </div>
+          <div class="kpi-card__footer" id="kpi-sla-subtext">
+            Janela operacional: 20–25 min
+          </div>
+        </article>
+
+        <!-- Card 3: Badge de Risco Logístico -->
+        <article class="kpi-card">
+          <div class="kpi-card__top">
+            <span class="kpi-card__label">RISCO LOGÍSTICO DA ROTA</span>
+            <span class="kpi-micro-id" id="kpi-risk-code">STATUS</span>
+          </div>
+          <div class="risk-badge-container">
+            <span id="kpi-risk-badge" class="risk-badge risk-badge--low">LOW RISK</span>
+          </div>
+          <div class="kpi-card__footer" id="kpi-risk-subtitle">
+            Malha Estável &amp; Nominal
+          </div>
+        </article>
+      </div>
+
+      <!-- CARD DE RECOMENDAÇÃO DE ALOCAÇÃO & GARGALOS -->
+      <div class="decision-card">
+        <div class="decision-card__header">
+          <div class="decision-title-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="decision-icon">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <h3>Recomendação de Alocação &amp; Despacho (IA)</h3>
+          </div>
+          <span class="decision-tag">Routing Engine</span>
+        </div>
+        <p id="kpi-routing-recommendation" class="decision-card__recommendation">
+          OPERAÇÃO NOMINAL EFICIENTE: Alocação padrão no pool local (Raio &lt;= 1.0km). Elegível para E-Bike/Moto em curta distância e Smart Batching otimizado.
+        </p>
+
+        <div class="bottlenecks-section">
+          <span class="section-micro-label">FATORES DE IMPACTO &amp; GARGALOS DETECTADOS (`bottleneck_factors`)</span>
+          <ul id="kpi-bottleneck-list" class="bottleneck-chips">
+            <li class="bottleneck-chip">Visibilidade e condições meteorológicas ideais (Céu Limpo)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- COMPARATIVO LADO A LADO: ESTÁTICO TRADICIONAL vs DINÂMICO COM IA -->
+      <div class="comparison-block">
+        <div class="comparison-block__header">
+          <span class="section-micro-label">COMPARATIVO ARQUITETURAL LADO A LADO (A/B BENCHMARK)</span>
+          <span id="comparison-delta-pill" class="comparison-delta-pill">+R$ 0,72 (+6%) Proteção de Margem</span>
+        </div>
+
+        <div class="comparison-grid">
+          <!-- Coluna A: Cálculo Estático Tradicional -->
+          <div class="comparison-card comparison-card--static">
+            <div class="comparison-card__header">
+              <span class="comp-tag comp-tag--legacy">LEGADO DETERMINÍSTICO</span>
+              <h4>Cálculo Estático Tradicional</h4>
+            </div>
+            <dl class="comp-metrics-list">
+              <div class="comp-metric-row">
+                <dt>Taxa Fixa Coleta:</dt>
+                <dd id="comp-static-fixed">R$ 4,50</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Distância (<span id="comp-static-km">4.2</span> km × R$ 1,80):</dt>
+                <dd id="comp-static-dist-cost">R$ 7,56</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Adicional Peso/Volume:</dt>
+                <dd id="comp-static-addon">R$ 0,00</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Surge Multiplier:</dt>
+                <dd class="text-muted">1.00x (Fixo / Cego ao Contexto)</dd>
+              </div>
+              <div class="comp-metric-row comp-metric-row--total">
+                <dt>Frete Estático:</dt>
+                <dd id="comp-static-total">R$ 12,06</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>SLA Estático Estimado:</dt>
+                <dd id="comp-static-sla">20 min</dd>
+              </div>
+            </dl>
+            <div class="comp-limitation-note">
+              ⚠️ Ignora intempéries climáticas, acidentes na via e déficit de entregadores no cluster.
+            </div>
+          </div>
+
+          <!-- Coluna B: Cálculo Dinâmico com IA -->
+          <div class="comparison-card comparison-card--dynamic">
+            <div class="comparison-card__header">
+              <span class="comp-tag comp-tag--ai">LOGIENGINE AI (GEMINI)</span>
+              <h4>Cálculo Dinâmico com IA</h4>
+            </div>
+            <dl class="comp-metrics-list">
+              <div class="comp-metric-row">
+                <dt>Base Determinística:</dt>
+                <dd id="comp-dyn-base">R$ 12,06</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Surge Multiplier IA:</dt>
+                <dd id="comp-dyn-surge" class="text-accent-green">1.06x</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Prêmio Dinâmico (Incentivo):</dt>
+                <dd id="comp-dyn-delta">+R$ 0,72</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>Risco Operacional Previsto:</dt>
+                <dd id="comp-dyn-risk">LOW</dd>
+              </div>
+              <div class="comp-metric-row comp-metric-row--total comp-metric-row--ai-total">
+                <dt>Frete Dinâmico Final:</dt>
+                <dd id="comp-dyn-total">R$ 12,78</dd>
+              </div>
+              <div class="comp-metric-row">
+                <dt>SLA Preditivo Ajustado:</dt>
+                <dd id="comp-dyn-sla">22 min</dd>
+              </div>
+            </dl>
+            <div class="comp-advantage-note">
+              ✓ Equilibra oferta de entregadores com Surge inteligente e protege a confiabilidade do SLA.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         PAINEL DIREITO: ENGINEERING TELEMETRY & OBSERVABILITY
+         ==================================================================== -->
+    <section class="panel panel--right" aria-labelledby="right-panel-title">
+      <div class="panel__header">
+        <div class="panel__title-group">
+          <span class="panel__step-badge">03</span>
+          <div>
+            <h2 id="right-panel-title" class="panel__title">Engineering Telemetry &amp; Observability</h2>
+            <p class="panel__subtitle">Inspeção de Payload JSON, Latência e SQL Log Store</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- NAVEGAÇÃO DE ABAS (JSON PAYLOAD vs METRICS & LOGS) -->
+      <div class="telemetry-tabs" role="tablist" aria-label="Abas de Telemetria">
+        <button
+          type="button"
+          role="tab"
+          id="tab-btn-json"
+          aria-selected="true"
+          aria-controls="tab-panel-json"
+          class="telemetry-tab is-active"
+          data-tab="json"
+        >
+          <span class="tab-dot tab-dot--red"></span>
+          JSON Payload (LLM Output)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-btn-metrics"
+          aria-selected="false"
+          aria-controls="tab-panel-metrics"
+          class="telemetry-tab"
+          data-tab="metrics"
+        >
+          <span class="tab-dot tab-dot--green"></span>
+          Metrics &amp; Logs
+          <span id="logs-count-badge" class="tab-counter">0</span>
+        </button>
+      </div>
+
+      <!-- ABA 1: JSON PAYLOAD COM SYNTAX HIGHLIGHTING -->
+      <div id="tab-panel-json" role="tabpanel" aria-labelledby="tab-btn-json" class="telemetry-tabpanel is-active">
+        <div class="code-viewer-card">
+          <div class="code-viewer-header">
+            <div class="code-viewer-meta">
+              <span class="schema-status-badge">✓ Schema Validated</span>
+              <span id="payload-tx-id" class="mono-tx-id">tx: --</span>
+            </div>
+            <button type="button" id="btn-copy-json" class="secondary-btn btn-xs">
+              Copiar JSON
+            </button>
+          </div>
+          <pre class="json-code-block" aria-live="polite"><code id="json-payload-viewer"></code></pre>
+        </div>
+
+        <!-- RESUMO DE TELEMETRIA RÁPIDA NO RODAPÉ DA ABA JSON -->
+        <div class="quick-telemetry-strip">
+          <div class="qt-item">
+            <span class="qt-label">HTTP Status</span>
+            <strong id="qt-http-status" class="qt-value qt-value--ok">200 OK</strong>
+          </div>
+          <div class="qt-item">
+            <span class="qt-label">Inference Latency</span>
+            <strong id="qt-latency" class="qt-value">184 ms</strong>
+          </div>
+          <div class="qt-item">
+            <span class="qt-label">Target Model</span>
+            <strong id="qt-model" class="qt-value">gemini-3.8-flash</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 2: METRICS & LOGS (HISTÓRICO SQL & EXPORTAÇÃO) -->
+      <div id="tab-panel-metrics" role="tabpanel" aria-labelledby="tab-btn-metrics" class="telemetry-tabpanel" hidden>
+        <!-- 3 TELEMETRY METRIC CARDS -->
+        <div class="telemetry-metrics-grid">
+          <div class="t-metric-box">
+            <span class="t-metric-label">Status HTTP</span>
+            <strong id="metric-http-status" class="t-metric-val t-metric-val--green">200 OK</strong>
+            <span class="t-metric-sub">Strict JSON Schema</span>
+          </div>
+          <div class="t-metric-box">
+            <span class="t-metric-label">Latência Inferência</span>
+            <strong id="metric-latency-ms" class="t-metric-val">184 ms</strong>
+            <span id="metric-avg-latency" class="t-metric-sub">Média: 184 ms</span>
+          </div>
+          <div class="t-metric-box">
+            <span class="t-metric-label">Modelo Utilizado</span>
+            <strong id="metric-model-name" class="t-metric-val t-metric-val--mono">gemini-2.5-flash / 3.8-flash</strong>
+            <span id="metric-engine-mode" class="t-metric-sub">Interactions API</span>
+          </div>
+        </div>
+
+        <!-- BARRA DE AÇÕES DO HISTÓRICO SQL -->
+        <div class="logs-toolbar">
+          <div class="logs-toolbar__left">
+            <span class="sql-table-badge">TABLE: tb_logistics_quotations</span>
+            <span class="micro-hint">Clique em uma linha p/ inspecionar</span>
+          </div>
+          <div class="logs-toolbar__actions">
+            <button type="button" id="btn-export-csv" class="secondary-btn btn-xs" title="Exportar tabela para CSV">
+              Exportar CSV
+            </button>
+            <button type="button" id="btn-export-json" class="secondary-btn btn-xs" title="Exportar tabela completa para JSON">
+              Exportar JSON
+            </button>
+            <button type="button" id="btn-clear-logs" class="danger-ghost-btn btn-xs" title="Limpar histórico local">
+              Limpar
+            </button>
+          </div>
+        </div>
+
+        <!-- TABELA DE HISTÓRICO DAS ÚLTIMAS EXECUÇÕES -->
+        <div class="logs-table-wrapper">
+          <table class="logs-table" aria-label="Histórico de cotações processadas">
+            <thead>
+              <tr>
+                <th>UUID / Hora</th>
+                <th>Rota (CEPs)</th>
+                <th>Surge / Frete</th>
+                <th>SLA</th>
+                <th>Risco</th>
+                <th>Latência</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-logs-tbody">
+              <!-- Preenchido dinamicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL DE INSPEÇÃO DO SYSTEM PROMPT & CONTRATO JSON SCHEMA -->
+  <dialog id="contract-modal" class="engineering-modal" aria-labelledby="modal-title">
+    <div class="engineering-modal__content">
+      <div class="engineering-modal__header">
+        <div>
+          <span class="arch-pill">Google Gemini API • Structured Outputs</span>
+          <h2 id="modal-title" class="engineering-modal__title">System Prompt &amp; Contrato JSON Schema</h2>
+        </div>
+        <button type="button" id="btn-close-modal" class="icon-btn" aria-label="Fechar modal">✕</button>
+      </div>
+      <div class="engineering-modal__body">
+        <div class="modal-block">
+          <span class="section-micro-label">SYSTEM INSTRUCTION EMBUTIDO NA CHAMADA DA IA</span>
+          <pre class="modal-code-pre"><code id="modal-system-prompt"></code></pre>
+        </div>
+        <div class="modal-block">
+          <span class="section-micro-label">RESPONSE_FORMAT JSON SCHEMA (STRICT CONTRACT)</span>
+          <pre class="modal-code-pre"><code id="modal-json-schema"></code></pre>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
